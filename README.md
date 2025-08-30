@@ -32,7 +32,7 @@ Implemented detection queries based on MITRE ATT&CK techniques:
 - T1562.004: Modify System Firewall.
 - T1543.002: Create or Modify System Process.
 
-## Dashboards
+## Workbook
 
 Custom dashboards provide visual insights into security events and alerts.
 
