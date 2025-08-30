@@ -1,0 +1,260 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspace": {
+            "type": "String"
+        }
+    },
+    "resources": [
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/f2a97dc0-7e55-4bd0-bcb2-9cdf27e0e0f3')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/f2a97dc0-7e55-4bd0-bcb2-9cdf27e0e0f3')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2023-12-01-preview",
+            "properties": {
+                "displayName": "Firewall Rule Modification via Command Line",
+                "description": "Rule Name: Firewall Rule Modification via Command Line  \n\nDescription:  \nThis detection identifies attempts to modify Windows Firewall settings using `netsh advfirewall` commands executed from processes launched by `cmd.exe` or `powershell.exe`. Adversaries may use firewall rule modifications to open communication channels, disable protections, or evade detection during lateral movement and persistence. The query parses Windows Event ID 1 (Process Creation) to capture command-line arguments and correlate them with parent process execution context.  \n\nImpact:  \nUnauthorized firewall modifications can weaken host defenses, expose services to external access, and facilitate persistence or command-and-control channels. Attackers may use this technique to enable RDP, SMB, or other services critical to post-exploitation activities.  \n\nConfidence:  \nHigh. Direct modification of firewall rules via command line is uncommon for routine operations and often strongly indicative of suspicious or malicious behavior.  \n\nIndicators:  \n- Parent process is `cmd.exe` or `powershell.exe`.  \n- Command line includes `netsh advfirewall`.  \n- Process responsible for firewall changes runs under unexpected or non-administrative accounts.  \n\nResponse:  \n- Confirm whether the firewall rule modification was legitimate (e.g., admin troubleshooting).  \n- Review user context and originating process for signs of malicious intent.  \n- Investigate subsequent network connections that may rely on the modified firewall rules.  \n- If unauthorized, terminate the process, restore firewall policies, and review host for further compromise.  \n\nScope (Not Covered):  \n- This rule does not capture firewall modifications via GUI tools or API calls.  \n- It does not detect firewall policy changes applied through Group Policy or centralized management solutions.  \n- It does not differentiate between malicious use and legitimate administrative troubleshooting without additional context.",
+                "severity": "Medium",
+                "enabled": true,
+                "query": "Event\n| where EventID == 1\n| extend ParsedXml = parse_xml(EventData)\n| mv-apply DataField = ParsedXml.DataItem.EventData.Data on (\n    extend Name = tostring(DataField[\"@Name\"]),\n           Value = tostring(DataField[\"#text\"])\n)\n| summarize EventData = make_bag(pack(Name, Value)) by TimeGenerated, Computer, EventID\n| extend \n    PID = tostring(EventData[\"ProcessId\"]),\n    ModifyingUser = tostring(EventData[\"User\"]),\n    Process = tostring(EventData[\"Image\"]),\n    CommandLine = tostring(EventData[\"CommandLine\"]),\n    PPID = tostring(EventData[\"ParentProcessId\"]),\n    ParentCommandLine = tostring(EventData[\"ParentCommandLine\"]),\n    LogonId = tostring(EventData[\"LogonId\"])\n| where ParentCommandLine contains \"powershell\" or ParentCommandLine contains \"cmd\"\n| where CommandLine contains \"advfirewall\" \n| project TimeGenerated, Computer,Process,PID,CommandLine, PPID, ParentCommandLine, ModifyingUser, LogonId\n",
+                "queryFrequency": "PT5M",
+                "queryPeriod": "PT5H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [
+                    "DefenseEvasion"
+                ],
+                "techniques": [],
+                "subTechniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": true,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": []
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": null,
+                "customDetails": {},
+                "entityMappings": [
+                    {
+                        "entityType": "Account",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Name",
+                                "columnName": "ModifyingUser"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "Host",
+                        "fieldMappings": [
+                            {
+                                "identifier": "HostName",
+                                "columnName": "Computer"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "File",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Name",
+                                "columnName": "Process"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "Process",
+                        "fieldMappings": [
+                            {
+                                "identifier": "ProcessId",
+                                "columnName": "PID"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "Process",
+                        "fieldMappings": [
+                            {
+                                "identifier": "CommandLine",
+                                "columnName": "CommandLine"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8943ba1a-ac0f-4e76-8367-12f8ea3509a0')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/8943ba1a-ac0f-4e76-8367-12f8ea3509a0')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2023-12-01-preview",
+            "properties": {
+                "displayName": "Suspicious Systemd Service Creation or Modification",
+                "description": "Description:  \nThis detection identifies potential creation or modification of service files within `/etc/systemd/system/` or `/etc/init.d/`. Attackers often create or tamper with service definitions to establish persistence or elevate privileges. The rule looks for suspicious usage of utilities such as `mv`, `tee`, `touch`, `echo`, `vim`, `vi`, `nano`, `cp`, and `ln` interacting with service directories, as well as attempts to edit units using `systemctl edit`. It also correlates these events with the most recent service reload to highlight when changes are likely to have been applied.  \n\nImpact:  \nAdversaries may use service manipulation to maintain persistence or execute malicious payloads on system startup. Successful exploitation allows code execution with system-level privileges and may go undetected without proper monitoring.  \n\nConfidence:  \nMedium. The presence of service file creation or modification is suspicious, but some administrative activities may also generate these events.  \n\nIndicators:  \n- Creation or modification of files under `/etc/systemd/system/` or `/etc/init.d/`  \n- Use of text editors or file manipulation tools to alter service definitions  \n- Service reloads following modifications  \n\nResponse:  \n- Validate whether the observed service changes were authorized and expected.  \n- Investigate the content of newly created or modified service files.  \n- Review associated user accounts and processes that performed the actions.  \n- If unauthorized, isolate the host, remove malicious services, and reset credentials.  \n\nScope (Not Covered):  \n- This rule does not detect persistence mechanisms outside of systemd or init (e.g., cron jobs, rc scripts, kernel modules).  \n- It does not distinguish between malicious and legitimate administrative edits without additional context.  \n- It does not cover service modifications performed through configuration management tools (e.g., Ansible, Puppet, Chef) unless they trigger detectable syslog messages.",
+                "severity": "Medium",
+                "enabled": true,
+                "query": "\n\nlet SystemdCreationOrEdits = Syslog\n| where SyslogMessage matches regex @\"\\b(|mv|tee|touch|echo|vim|vi|nano|cp|ln)\\b\\s+/etc/systemd/system/\"\n   or SyslogMessage contains \"systemctl edit\"\n   or SyslogMessage matches regex @\"\\b(mv|tee|touch|echo|vim|vi|nano|cp|ln)\\b\\s+.*?/etc/init.d/\"\n| project CreationOrEditTime = TimeGenerated, CreationMessage = SyslogMessage, HostName, HostIP;\n\nlet LatestReload = Syslog\n| where SyslogMessage == \"Reloading.\"\n| summarize LastReloadTime = max(TimeGenerated);\n\nSystemdCreationOrEdits\n| extend LastReloadTime = toscalar(LatestReload)",
+                "queryFrequency": "PT5M",
+                "queryPeriod": "PT5M",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [
+                    "Persistence"
+                ],
+                "techniques": [],
+                "subTechniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": true,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": []
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": {
+                    "alertDynamicProperties": []
+                },
+                "customDetails": null,
+                "entityMappings": [
+                    {
+                        "entityType": "Host",
+                        "fieldMappings": [
+                            {
+                                "identifier": "HostName",
+                                "columnName": "HostName"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "HostIP"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/a648eb40-04b9-4109-bbee-28c49ae096ed')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/a648eb40-04b9-4109-bbee-28c49ae096ed')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2023-12-01-preview",
+            "properties": {
+                "displayName": "MS365-Successful Sign-in From OAL",
+                "description": "Purpose: Detect successful logins to O365 accounts from locations outside of the US.\n\nData Sources: Microsoft 365 Sign-in Logs.\n\nDetection Logic:\n\n- Filters successful logins.\n\n- Excludes expected geographic region (US) to highlight anomalous locations.\n\n- Captures session metadata including device OS, user agent, IP address, and risk assessment.\n\nOutput: Table of successful non-US sign-ins for review or correlation.\n\nOperational Insight: Useful for detecting compromised accounts, unauthorized access, or anomalous login patterns in a global context. Alerts can trigger automated session revocation or MFA revalidation.",
+                "severity": "Medium",
+                "enabled": true,
+                "query": "SigninLogs \n| where ResultSignature == \"SUCCESS\" and LocationDetails.countryOrRegion <> \"US\"\n| project TimeGenerated, UserDisplayName, UserPrincipalName, SessionId, DeviceDetail.operatingSystem,UserAgent, LocationDetails.city, LocationDetails.countryOrRegion, IPAddress, RiskLevelDuringSignIn,UserId\n",
+                "queryFrequency": "PT5M",
+                "queryPeriod": "PT5H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [
+                    "InitialAccess"
+                ],
+                "techniques": [],
+                "subTechniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": true,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "Selected",
+                        "groupByEntities": [
+                            "IP"
+                        ],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": [
+                            "RiskLevel"
+                        ]
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": {
+                    "alertDynamicProperties": []
+                },
+                "customDetails": {
+                    "OS": "DeviceDetail_operatingSystem",
+                    "UserAgent": "UserAgent",
+                    "City": "LocationDetails_city",
+                    "Country": "LocationDetails_countryOrRegion",
+                    "RiskLevel": "RiskLevelDuringSignIn",
+                    "UPN": "UserPrincipalName"
+                },
+                "entityMappings": [
+                    {
+                        "entityType": "Account",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Name",
+                                "columnName": "UserPrincipalName"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "IPAddress"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "Account",
+                        "fieldMappings": [
+                            {
+                                "identifier": "AadUserId",
+                                "columnName": "UserId"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        }
+    ]
+}
